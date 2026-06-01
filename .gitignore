@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+~$*
+
+# App data (user-specific)
+vbs_aaigem_data.json
+
+# Old files
+*.xlsx
+*_MACRO.txt
+
+# IDE
+.vscode/
+.idea/
