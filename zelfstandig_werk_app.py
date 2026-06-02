@@ -23,7 +23,7 @@ from urllib.error import URLError
 # ============================================================
 # VERSIE
 # ============================================================
-VERSIE = "1.4.0"
+VERSIE = "1.6.1"
 GITHUB_REPO = "jcoetsie/Eve"
 
 # ============================================================
@@ -276,14 +276,14 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
   }}
 
   .tabel-container {{
-    overflow-x: auto;
+    overflow-x: hidden;
     padding: 0 10px 20px;
   }}
 
   table {{
     border-collapse: collapse;
     width: 100%;
-    min-width: 600px;
+    table-layout: fixed;
   }}
 
   th {{
@@ -291,18 +291,19 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
     color: white;
     font-weight: bold;
     font-size: 13px;
-    padding: 12px 8px;
+    padding: 12px 4px;
     border: 2px solid {hoofd_donker};
     text-align: center;
-    min-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }}
   th:first-child {{
-    min-width: 160px;
+    width: 15%;
     font-size: 15px;
     background: {hoofd_donker};
   }}
   th:last-child {{
-    min-width: 70px;
+    width: 8%;
     background: {accentkleur};
     border-color: {accent_donker};
   }}
@@ -318,14 +319,13 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
     font-size: 16px;
     color: {accentkleur};
     text-align: left;
-    padding: 0 12px;
+    padding: 0 8px;
     background: {hoofd_licht};
-    white-space: nowrap;
+    word-break: break-word;
   }}
   tr.odd td.naam {{ background: {hoofd_licht2}; }}
 
   td.cel {{
-    width: 90px;
     height: 55px;
     cursor: pointer;
     font-size: 30px;
@@ -348,24 +348,22 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
   td.score, td.klaar {{
     font-weight: bold;
     font-size: 15px;
-    padding: 0 8px;
+    padding: 0 4px;
     background: {accent_licht};
     color: {accentkleur};
-    white-space: nowrap;
   }}
 
   /* Layout: leerlingen bovenaan */
   th.naam-kol {{
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    transform: rotate(180deg);
-    padding: 12px 6px;
-    font-size: 14px;
+    padding: 10px 4px;
+    font-size: 15px;
+    font-weight: bold;
     color: {accentkleur};
     background: {hoofd_licht};
-    min-width: 50px;
-    height: 120px;
-    vertical-align: bottom;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
   }}
   th.naam-kol.odd {{ background: {hoofd_licht2}; }}
 
@@ -374,9 +372,9 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
     font-size: 14px;
     color: {accentkleur};
     text-align: left;
-    padding: 8px 12px;
+    padding: 8px;
     background: {hoofd_licht};
-    white-space: nowrap;
+    word-break: break-word;
   }}
 
   .score-rij td {{
@@ -1493,7 +1491,7 @@ def main():
     if laatst_gezien != VERSIE and laatst_gezien != "":
         # Nieuwe versie → haal release notes op en toon ze
         def ophalen_notes():
-            _haal_release_notes(VERSIE, lambda notes: root.after(
+            _haal_release_notes(laatst_gezien, VERSIE, lambda notes: root.after(
                 0, lambda: _toon_release_notes(root, app, notes)))
         threading.Thread(target=ophalen_notes, daemon=True).start()
 
@@ -1540,17 +1538,40 @@ def _toon_update(root, nieuwe_versie, download_url):
     ).pack(side="right", padx=(0, 5), pady=5)
 
 
-def _haal_release_notes(versie, callback):
-    """Haal release notes op van GitHub voor een specifieke versie."""
+def _haal_release_notes(vanaf_versie, tot_versie, callback):
+    """Haal release notes op van GitHub voor alle versies na vanaf_versie t/m tot_versie."""
+    def versie_tuple(v):
+        return tuple(int(x) for x in v.split(".") if x.isdigit())
+
     try:
-        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/v{versie}"
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases?per_page=20"
         req = Request(url, headers={"Accept": "application/vnd.github.v3+json",
                                      "User-Agent": "EvesZelfstandigWerk"})
         with urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        body = data.get("body", "")
-        if body:
-            callback(body)
+            releases = json.loads(resp.read().decode("utf-8"))
+
+        vanaf = versie_tuple(vanaf_versie) if vanaf_versie else (0,)
+        tot = versie_tuple(tot_versie)
+
+        # Filter releases: na vanaf_versie, t/m tot_versie
+        relevante = []
+        for rel in releases:
+            tag = rel.get("tag_name", "").lstrip("v")
+            body = rel.get("body", "")
+            if not tag or not body:
+                continue
+            vt = versie_tuple(tag)
+            if vt > vanaf and vt <= tot:
+                relevante.append((tag, body))
+
+        if relevante:
+            # Sorteer van oud naar nieuw
+            relevante.sort(key=lambda r: versie_tuple(r[0]))
+            gecombineerd = "\n\n".join(
+                f"## v{tag}\n{body}" if len(relevante) > 1 else body
+                for tag, body in relevante
+            )
+            callback(gecombineerd)
     except Exception:
         pass
 
@@ -1574,10 +1595,13 @@ def _toon_release_notes(root, app, notes):
     tk.Label(hdr, text=f"Wat is er nieuw in v{VERSIE}?",
              font=("Segoe UI", 16, "bold"), fg=WIT, bg="#27A9E1").pack(expand=True)
 
+    # Knip alles vanaf "## Downloads" weg (dat is het template-deel)
+    import re
+    notes = re.split(r'\n##\s+Downloads', notes)[0].strip()
+
     # Simpele markdown → tekst conversie
     schone_tekst = notes
     # Verwijder markdown links: [tekst](url) → tekst
-    import re
     schone_tekst = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', schone_tekst)
     # Verwijder HTML tags
     schone_tekst = re.sub(r'<[^>]+>', '', schone_tekst)
