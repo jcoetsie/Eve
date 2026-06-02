@@ -744,7 +744,8 @@ class App:
                         canvas.find_all()[0], width=e.width) if canvas.find_all() else None)
         return inner
 
-    def _maak_kaart(self, parent, titel, subtitel, kleur, on_click, on_delete=None):
+    def _maak_kaart(self, parent, titel, subtitel, kleur, on_click,
+                    on_delete=None, on_edit=None):
         """Maak een klikbare kaart met gekleurde linkerbalk."""
         kaart = tk.Frame(parent, bg=WIT, highlightbackground=GRIJS, highlightthickness=1)
         kaart.pack(fill="x", padx=8, pady=5)
@@ -772,6 +773,12 @@ class App:
                       font=("Segoe UI", 12), fg="#cc0000", bg=WIT,
                       activebackground="#ffcccc", relief="flat", cursor="hand2", bd=0,
                       ).pack(side="right", padx=(0, 8), pady=8)
+
+        if on_edit:
+            tk.Button(kaart, text=" \u270E ", command=on_edit,
+                      font=("Segoe UI", 12), fg=BLAUW, bg=WIT,
+                      activebackground="#cce5ff", relief="flat", cursor="hand2", bd=0,
+                      ).pack(side="right", padx=(0, 4), pady=8)
 
         return kaart
 
@@ -1127,6 +1134,7 @@ class App:
                     GROEN,
                     on_click=lambda o=opdr: self._genereer_bestaande(o),
                     on_delete=lambda o=opdr: self._verwijder_opdracht(o),
+                    on_edit=lambda o=opdr: self._bewerk_opdracht(o),
                 )
 
         nav = tk.Frame(self.inhoud, bg=WIT)
@@ -1165,26 +1173,41 @@ class App:
         except Exception as e:
             messagebox.showerror("Er ging iets mis", str(e))
 
-    def _nieuwe_opdracht(self):
-        self._wis_inhoud()
-        self._stel_stap_in(f"Nieuwe opdracht voor {self.huidige_klas}")
+    def _bewerk_opdracht(self, opdracht):
+        self._bewerkte_opdracht = opdracht
+        self._nieuwe_opdracht(bewerk=opdracht)
 
-        tk.Label(self.inhoud, text="Nieuwe opdracht",
+    def _nieuwe_opdracht(self, bewerk=None):
+        self._wis_inhoud()
+        if bewerk:
+            self._stel_stap_in(f"Opdracht bewerken voor {self.huidige_klas}")
+            titel = "Opdracht bewerken"
+        else:
+            self._bewerkte_opdracht = None
+            self._stel_stap_in(f"Nieuwe opdracht voor {self.huidige_klas}")
+            titel = "Nieuwe opdracht"
+
+        tk.Label(self.inhoud, text=titel,
                  font=("Segoe UI", 16, "bold"), fg=ZWART, bg=WIT).pack(anchor="w", pady=(0, 10))
 
         tk.Label(self.inhoud, text="Naam van de opdracht:",
                  font=("Segoe UI", 12), fg=ZWART, bg=WIT).pack(anchor="w", pady=(5, 3))
         self.entry_opdracht = tk.Entry(self.inhoud, font=("Segoe UI", 14), relief="solid", bd=1)
         self.entry_opdracht.pack(fill="x", ipady=6, pady=(0, 10))
-        self.entry_opdracht.insert(0, "Zelfstandig werk - ")
+        if bewerk:
+            self.entry_opdracht.insert(0, bewerk["naam"])
+        else:
+            self.entry_opdracht.insert(0, "Zelfstandig werk - ")
         self.entry_opdracht.focus_set()
-        self.entry_opdracht.icursor(len("Zelfstandig werk - "))
+        self.entry_opdracht.icursor(len(self.entry_opdracht.get()))
 
         tk.Label(self.inhoud, text="Taken (één per regel)  —  **vet**  __onderlijnd__",
                  font=("Segoe UI", 12), fg=ZWART, bg=WIT).pack(anchor="w", pady=(5, 3))
         self.txt_taken = scrolledtext.ScrolledText(self.inhoud, font=("Segoe UI", 13),
                                                     height=8, relief="solid", bd=1)
         self.txt_taken.pack(fill="both", expand=True, pady=(0, 10))
+        if bewerk:
+            self.txt_taken.insert("1.0", "\n".join(bewerk["taken"]))
 
         nav = tk.Frame(self.inhoud, bg=WIT)
         nav.pack(fill="x", pady=(10, 0))
@@ -1204,8 +1227,12 @@ class App:
             return
 
         # Bewaar
-        opdracht = {"naam": naam, "taken": taken}
-        self._klas_data()["opdrachten"].append(opdracht)
+        if self._bewerkte_opdracht:
+            self._bewerkte_opdracht["naam"] = naam
+            self._bewerkte_opdracht["taken"] = taken
+        else:
+            opdracht = {"naam": naam, "taken": taken}
+            self._klas_data()["opdrachten"].append(opdracht)
         bewaar_data(self.data)
 
         # Genereer
