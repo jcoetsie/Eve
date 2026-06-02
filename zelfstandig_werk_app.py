@@ -9,14 +9,14 @@ Bouw als Windows .exe:
 """
 
 import tkinter as tk
-from tkinter import messagebox, filedialog, scrolledtext
+from tkinter import messagebox, filedialog, scrolledtext, colorchooser
 import json
 import os
 import sys
 from datetime import date
 
 # ============================================================
-# KLEUREN - VBS Aaigem huisstijl
+# APP KLEUREN (UI van de app zelf - vast)
 # ============================================================
 GROEN = "#AACD55"
 GROEN_DONKER = "#8AB535"
@@ -27,6 +27,31 @@ LICHTGRIJS = "#F5F5F5"
 GRIJS = "#E0E0E0"
 DONKERGRIJS = "#666666"
 ZWART = "#333333"
+
+# ============================================================
+# STANDAARD SCHOOLKLEUREN (instelbaar door gebruiker)
+# ============================================================
+STANDAARD_INSTELLINGEN = {
+    "schoolnaam": "VBS Aaigem",
+    "hoofdkleur": "#AACD55",      # Groen - headers, knoppen
+    "accentkleur": "#27A9E1",     # Blauw - titelbalk, namen, score
+}
+
+def _donkerder(hex_kleur, factor=0.8):
+    """Maak een hex kleur donkerder."""
+    hex_kleur = hex_kleur.lstrip("#")
+    r, g, b = int(hex_kleur[0:2], 16), int(hex_kleur[2:4], 16), int(hex_kleur[4:6], 16)
+    r, g, b = int(r * factor), int(g * factor), int(b * factor)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def _lichter(hex_kleur, factor=0.3):
+    """Maak een lichte tint van een kleur (mix met wit)."""
+    hex_kleur = hex_kleur.lstrip("#")
+    r, g, b = int(hex_kleur[0:2], 16), int(hex_kleur[2:4], 16), int(hex_kleur[4:6], 16)
+    r = int(r + (255 - r) * (1 - factor))
+    g = int(g + (255 - g) * (1 - factor))
+    b = int(b + (255 - b) * (1 - factor))
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 # Pad voor opgeslagen data (in de Documenten-map van de gebruiker)
 def _data_map():
@@ -51,7 +76,7 @@ def laad_data():
                 return json.load(f)
         except Exception:
             pass
-    return {"klassen": {}, "opdrachten": {}}
+    return {"schooljaren": {}, "instellingen": dict(STANDAARD_INSTELLINGEN)}
 
 
 def bewaar_data(data):
@@ -63,7 +88,9 @@ def bewaar_data(data):
 # ============================================================
 # HTML GENERATOR - Smartboard Touch (geen macro's nodig!)
 # ============================================================
-def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
+def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
+                         hoofdkleur="#AACD55", accentkleur="#27A9E1",
+                         schoolnaam="VBS Aaigem"):
     """Genereer een HTML-bestand voor het smartboard.
 
     Touch op een vakje = vinkje aan/uit. Werkt in elke browser.
@@ -73,6 +100,18 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
 
     n_taken = len(taken)
     naam_esc = html_mod.escape(opdracht_naam)
+    school_esc = html_mod.escape(schoolnaam)
+
+    # Afgeleide kleuren
+    hoofd_donker = _donkerder(hoofdkleur)
+    accent_donker = _donkerder(accentkleur)
+    hoofd_licht = _lichter(hoofdkleur, 0.25)
+    hoofd_xlicht = _lichter(hoofdkleur, 0.15)
+    hoofd_licht2 = _lichter(hoofdkleur, 0.35)
+    hoofd_xlicht2 = _lichter(hoofdkleur, 0.20)
+    accent_licht = _lichter(accentkleur, 0.20)
+    hoofd_done = _lichter(hoofdkleur, 0.45)
+    hoofd_done2 = _lichter(hoofdkleur, 0.50)
 
     # Bouw tabel-rijen
     rijen_html = ""
@@ -98,7 +137,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{naam_esc} - VBS Aaigem</title>
+<title>{naam_esc} - {school_esc}</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -111,7 +150,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
   }}
 
   .header {{
-    background: #27A9E1;
+    background: {accentkleur};
     color: white;
     text-align: center;
     padding: 18px 20px 10px;
@@ -120,7 +159,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
   .header p {{ font-size: 16px; opacity: 0.85; }}
 
   .subheader {{
-    background: #AACD55;
+    background: {hoofdkleur};
     color: white;
     text-align: center;
     padding: 8px;
@@ -148,24 +187,24 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
   }}
 
   th {{
-    background: #AACD55;
+    background: {hoofdkleur};
     color: white;
     font-weight: bold;
     font-size: 13px;
     padding: 12px 8px;
-    border: 2px solid #8AB535;
+    border: 2px solid {hoofd_donker};
     text-align: center;
     min-width: 90px;
   }}
   th:first-child {{
     min-width: 160px;
     font-size: 15px;
-    background: #8AB535;
+    background: {hoofd_donker};
   }}
   th:last-child {{
     min-width: 70px;
-    background: #27A9E1;
-    border-color: #1E8CBF;
+    background: {accentkleur};
+    border-color: {accent_donker};
   }}
 
   td {{
@@ -177,13 +216,13 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
   td.naam {{
     font-weight: bold;
     font-size: 16px;
-    color: #27A9E1;
+    color: {accentkleur};
     text-align: left;
     padding: 0 12px;
-    background: #E8F5D4;
+    background: {hoofd_licht};
     white-space: nowrap;
   }}
-  tr.odd td.naam {{ background: #D4EEA0; }}
+  tr.odd td.naam {{ background: {hoofd_licht2}; }}
 
   td.cel {{
     width: 90px;
@@ -191,27 +230,27 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
     cursor: pointer;
     font-size: 30px;
     transition: background 0.15s;
-    background: #F0FAE0;
+    background: {hoofd_xlicht};
   }}
-  tr.odd td.cel {{ background: #E4F2CC; }}
+  tr.odd td.cel {{ background: {hoofd_xlicht2}; }}
 
-  td.cel:hover {{ background: #d4e8b0 !important; }}
-  td.cel:active {{ background: #c0d89a !important; }}
+  td.cel:hover {{ background: {hoofd_licht2} !important; }}
+  td.cel:active {{ background: {hoofd_licht} !important; }}
 
   td.cel.done {{
-    color: #27A9E1;
-    background: #b8e6a0 !important;
+    color: {accentkleur};
+    background: {hoofd_done} !important;
   }}
   tr.odd td.cel.done {{
-    background: #a8d890 !important;
+    background: {hoofd_done2} !important;
   }}
 
   td.score {{
     font-weight: bold;
     font-size: 15px;
     padding: 0 8px;
-    background: #D4EEF9;
-    color: #27A9E1;
+    background: {accent_licht};
+    color: {accentkleur};
     white-space: nowrap;
   }}
 
@@ -251,11 +290,11 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
     animation: spinStar 1s ease;
   }}
   .viering-tekst {{
-    font-size: 36px; font-weight: bold; color: #27A9E1;
+    font-size: 36px; font-weight: bold; color: {accentkleur};
     margin: 10px 0 5px; font-family: 'Roboto', sans-serif;
   }}
   .viering-sub {{
-    font-size: 18px; color: #AACD55; font-weight: bold;
+    font-size: 18px; color: {hoofdkleur}; font-weight: bold;
     font-family: 'Roboto', sans-serif;
   }}
   .confetti {{
@@ -281,7 +320,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad):
 
 <div class="header">
   <h1>{naam_esc}</h1>
-  <p>VBS Aaigem</p>
+  <p>{school_esc}</p>
 </div>
 <div class="subheader">Raak je vakje aan als je klaar bent!</div>
 
@@ -321,7 +360,7 @@ function updateScores() {{
     }}
     const el = document.getElementById('score' + i);
     el.textContent = done + '/' + N_TAKEN;
-    el.style.color = done === N_TAKEN ? '#4CAF50' : '#27A9E1';
+    el.style.color = done === N_TAKEN ? '#4CAF50' : '{accentkleur}';
     el.style.fontWeight = done === N_TAKEN ? '900' : 'bold';
     if (done === N_TAKEN && !el.dataset.gevierd) {{
       el.dataset.gevierd = '1';
@@ -351,7 +390,7 @@ function viering(leerlingIdx) {{
     c.style.left = Math.random() * 100 + 'vw';
     c.style.animationDelay = Math.random() * 0.5 + 's';
     c.style.animationDuration = (1.5 + Math.random() * 2) + 's';
-    const kleuren = ['#AACD55','#27A9E1','#F5A623','#E74C8B','#9B59B6','#FF6B6B','#4CAF50'];
+    const kleuren = ['{hoofdkleur}','{accentkleur}','#F5A623','#E74C8B','#9B59B6','#FF6B6B','#4CAF50'];
     c.style.background = kleuren[Math.floor(Math.random() * kleuren.length)];
     c.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
     ov.appendChild(c);
@@ -438,6 +477,10 @@ class App:
 
         if "schooljaren" not in self.data:
             self.data["schooljaren"] = {}
+        if "instellingen" not in self.data:
+            self.data["instellingen"] = dict(STANDAARD_INSTELLINGEN)
+
+        self.inst = self.data["instellingen"]
 
         self.huidig_jaar = None
         self.huidige_klas = None
@@ -449,22 +492,33 @@ class App:
     # LAYOUT: vaste header + wisselend inhoudspaneel
     # ----------------------------------------------------------
     def _bouw_layout(self):
+        accent = self.inst.get("accentkleur", "#27A9E1")
+        hoofd = self.inst.get("hoofdkleur", "#AACD55")
+
         # Header
-        hdr = tk.Frame(self.root, bg=BLAUW, height=55)
+        hdr = tk.Frame(self.root, bg=accent, height=55)
         hdr.pack(fill="x")
         hdr.pack_propagate(False)
         tk.Label(hdr, text="Eve's Zelfstandig Werk Generator",
-                 font=("Segoe UI", 18, "bold"), fg=WIT, bg=BLAUW).pack(side="left", padx=20)
-        tk.Label(hdr, text="VBS Aaigem",
-                 font=("Segoe UI", 12), fg=WIT, bg=BLAUW).pack(side="right", padx=20)
+                 font=("Segoe UI", 18, "bold"), fg=WIT, bg=accent).pack(side="left", padx=20)
+
+        # Tandwiel knop (instellingen)
+        gear = tk.Label(hdr, text="\u2699", font=("Segoe UI", 20), fg=WIT, bg=accent,
+                        cursor="hand2")
+        gear.pack(side="right", padx=(0, 15))
+        gear.bind("<Button-1>", lambda e: self._toon_instellingen())
+
+        self.school_label = tk.Label(hdr, text=self.inst.get("schoolnaam", ""),
+                                      font=("Segoe UI", 12), fg=WIT, bg=accent)
+        self.school_label.pack(side="right", padx=(0, 10))
 
         # Stappenbalk
-        self.stappen_frame = tk.Frame(self.root, bg=GROEN, height=40)
+        self.stappen_frame = tk.Frame(self.root, bg=hoofd, height=40)
         self.stappen_frame.pack(fill="x")
         self.stappen_frame.pack_propagate(False)
         self.stappen_label = tk.Label(
             self.stappen_frame, text="",
-            font=("Segoe UI", 12, "bold"), fg=WIT, bg=GROEN,
+            font=("Segoe UI", 12, "bold"), fg=WIT, bg=hoofd,
         )
         self.stappen_label.pack(expand=True)
 
@@ -948,7 +1002,10 @@ class App:
         if not pad:
             return
         try:
-            html_pad = genereer_smartboard(leerlingen, naam, taken, pad)
+            html_pad = genereer_smartboard(leerlingen, naam, taken, pad,
+                                          hoofdkleur=self.inst.get("hoofdkleur", "#AACD55"),
+                                          accentkleur=self.inst.get("accentkleur", "#27A9E1"),
+                                          schoolnaam=self.inst.get("schoolnaam", ""))
             self._toon_klaar(html_pad, naam, len(leerlingen), len(taken))
         except Exception as e:
             messagebox.showerror("Er ging iets mis", str(e))
@@ -1005,7 +1062,10 @@ class App:
         if not pad:
             return
         try:
-            html_pad = genereer_smartboard(leerlingen, naam, taken, pad)
+            html_pad = genereer_smartboard(leerlingen, naam, taken, pad,
+                                          hoofdkleur=self.inst.get("hoofdkleur", "#AACD55"),
+                                          accentkleur=self.inst.get("accentkleur", "#27A9E1"),
+                                          schoolnaam=self.inst.get("schoolnaam", ""))
             self._toon_klaar(html_pad, naam, len(leerlingen), len(taken))
         except Exception as e:
             messagebox.showerror("Er ging iets mis", str(e))
@@ -1062,6 +1122,113 @@ class App:
                 os.system(f'xdg-open "{pad}"')
         except Exception:
             messagebox.showinfo("Bestand", f"Open het bestand handmatig:\n{pad}")
+
+    # ==========================================================
+    # INSTELLINGEN
+    # ==========================================================
+    def _toon_instellingen(self):
+        self._wis_inhoud()
+        self._stel_stap_in("Instellingen")
+
+        tk.Label(self.inhoud, text="Instellingen",
+                 font=("Segoe UI", 16, "bold"), fg=ZWART, bg=WIT).pack(anchor="w", pady=(0, 15))
+
+        # Schoolnaam
+        tk.Label(self.inhoud, text="Naam van de school:",
+                 font=("Segoe UI", 12), fg=ZWART, bg=WIT).pack(anchor="w", pady=(5, 3))
+        self.entry_schoolnaam = tk.Entry(self.inhoud, font=("Segoe UI", 14), relief="solid", bd=1)
+        self.entry_schoolnaam.pack(fill="x", ipady=6, pady=(0, 15))
+        self.entry_schoolnaam.insert(0, self.inst.get("schoolnaam", ""))
+
+        # Kleuren
+        tk.Label(self.inhoud, text="Kleuren:",
+                 font=("Segoe UI", 12), fg=ZWART, bg=WIT).pack(anchor="w", pady=(5, 8))
+
+        kleur_frame = tk.Frame(self.inhoud, bg=WIT)
+        kleur_frame.pack(fill="x", pady=(0, 10))
+
+        # Hoofdkleur
+        hk_frame = tk.Frame(kleur_frame, bg=WIT)
+        hk_frame.pack(side="left", expand=True, fill="x", padx=(0, 10))
+        tk.Label(hk_frame, text="Hoofdkleur", font=("Segoe UI", 11), fg=DONKERGRIJS,
+                 bg=WIT).pack(anchor="w")
+        tk.Label(hk_frame, text="(headers, knoppen, tabel)",
+                 font=("Segoe UI", 9), fg="#aaa", bg=WIT).pack(anchor="w")
+        self.preview_hoofd = tk.Frame(hk_frame, bg=self.inst.get("hoofdkleur", "#AACD55"),
+                                       width=200, height=50, cursor="hand2")
+        self.preview_hoofd.pack(fill="x", pady=(5, 0), ipady=15)
+        self.preview_hoofd.pack_propagate(False)
+        self.lbl_hoofd = tk.Label(self.preview_hoofd, text=self.inst.get("hoofdkleur", "#AACD55"),
+                                   font=("Segoe UI", 12, "bold"), fg=WIT,
+                                   bg=self.inst.get("hoofdkleur", "#AACD55"), cursor="hand2")
+        self.lbl_hoofd.pack(expand=True)
+        for w in [self.preview_hoofd, self.lbl_hoofd]:
+            w.bind("<Button-1>", lambda e: self._kies_kleur("hoofdkleur"))
+
+        # Accentkleur
+        ak_frame = tk.Frame(kleur_frame, bg=WIT)
+        ak_frame.pack(side="left", expand=True, fill="x", padx=(10, 0))
+        tk.Label(ak_frame, text="Accentkleur", font=("Segoe UI", 11), fg=DONKERGRIJS,
+                 bg=WIT).pack(anchor="w")
+        tk.Label(ak_frame, text="(titelbalk, namen, score)",
+                 font=("Segoe UI", 9), fg="#aaa", bg=WIT).pack(anchor="w")
+        self.preview_accent = tk.Frame(ak_frame, bg=self.inst.get("accentkleur", "#27A9E1"),
+                                        width=200, height=50, cursor="hand2")
+        self.preview_accent.pack(fill="x", pady=(5, 0), ipady=15)
+        self.preview_accent.pack_propagate(False)
+        self.lbl_accent = tk.Label(self.preview_accent, text=self.inst.get("accentkleur", "#27A9E1"),
+                                    font=("Segoe UI", 12, "bold"), fg=WIT,
+                                    bg=self.inst.get("accentkleur", "#27A9E1"), cursor="hand2")
+        self.lbl_accent.pack(expand=True)
+        for w in [self.preview_accent, self.lbl_accent]:
+            w.bind("<Button-1>", lambda e: self._kies_kleur("accentkleur"))
+
+        # Tip
+        tk.Label(self.inhoud, text="Klik op een kleurvak om een andere kleur te kiezen.",
+                 font=("Segoe UI", 10, "italic"), fg="#aaa", bg=WIT).pack(anchor="w", pady=(5, 0))
+
+        # Spacer
+        tk.Frame(self.inhoud, bg=WIT).pack(fill="both", expand=True)
+
+        # Knoppen
+        nav = tk.Frame(self.inhoud, bg=WIT)
+        nav.pack(fill="x", pady=(15, 0))
+        self._kleine_knop(nav, "\u2190  Terug", self._instellingen_annuleren).pack(side="left")
+        self._grote_knop(nav, "Opslaan", self._instellingen_opslaan,
+                         kleur=self.inst.get("accentkleur", "#27A9E1"), breedte=15).pack(side="right")
+
+    def _kies_kleur(self, welke):
+        huidige = self.inst.get(welke, "#AACD55")
+        kleur = colorchooser.askcolor(color=huidige, title="Kies een kleur")
+        if kleur and kleur[1]:
+            hex_kleur = kleur[1]
+            self.inst[welke] = hex_kleur
+            if welke == "hoofdkleur":
+                self.preview_hoofd.config(bg=hex_kleur)
+                self.lbl_hoofd.config(bg=hex_kleur, text=hex_kleur)
+            else:
+                self.preview_accent.config(bg=hex_kleur)
+                self.lbl_accent.config(bg=hex_kleur, text=hex_kleur)
+
+    def _instellingen_opslaan(self):
+        self.inst["schoolnaam"] = self.entry_schoolnaam.get().strip() or "Mijn School"
+        self.data["instellingen"] = self.inst
+        bewaar_data(self.data)
+
+        # Herlaad de layout met nieuwe kleuren
+        for w in self.root.winfo_children():
+            w.destroy()
+        self._bouw_layout()
+        self.status_var.set("Instellingen opgeslagen!")
+        self._toon_stap_schooljaar()
+
+    def _instellingen_annuleren(self):
+        # Reload instellingen van disk (ongedaan maken van preview-wijzigingen)
+        self.data = laad_data()
+        if "instellingen" not in self.data:
+            self.data["instellingen"] = dict(STANDAARD_INSTELLINGEN)
+        self.inst = self.data["instellingen"]
+        self._toon_stap_schooljaar()
 
 
 # ============================================================
