@@ -13,7 +13,17 @@ from tkinter import messagebox, filedialog, scrolledtext, colorchooser
 import json
 import os
 import sys
+import threading
+import webbrowser
 from datetime import date
+from urllib.request import urlopen, Request
+from urllib.error import URLError
+
+# ============================================================
+# VERSIE
+# ============================================================
+VERSIE = "1.2.0"
+GITHUB_REPO = "jcoetsie/Eve"
 
 # ============================================================
 # APP KLEUREN (UI van de app zelf - vast)
@@ -66,21 +76,66 @@ def _data_pad():
 
 
 # ============================================================
-# DATA OPSLAG - klassen, leerlingen, opdrachten
+# DATA OPSLAG + MIGRATIE
 # ============================================================
+DATA_SCHEMA_VERSIE = 2  # Verhoog bij schema-wijzigingen
+
+def _migreer_data(data):
+    """Migreer oude data-formaten naar het huidige schema."""
+    schema = data.get("_schema", 0)
+
+    if schema < 1:
+        # v0 -> v1: oud formaat met "klassen"/{} en "opdrachten"/{} op toplevel
+        if "klassen" in data and "schooljaren" not in data:
+            oude_klassen = data.pop("klassen", {})
+            oude_opdrachten = data.pop("opdrachten", {})
+            data["schooljaren"] = {}
+            if oude_klassen:
+                # Zet alles onder een standaard schooljaar
+                vandaag = date.today()
+                start = vandaag.year if vandaag.month >= 9 else vandaag.year - 1
+                jaar = f"{start}-{start + 1}"
+                klassen_nieuw = {}
+                for naam, leerlingen in oude_klassen.items():
+                    klassen_nieuw[naam] = {
+                        "leerlingen": leerlingen if isinstance(leerlingen, list) else [],
+                        "opdrachten": oude_opdrachten.get(naam, []),
+                    }
+                data["schooljaren"][jaar] = {"klassen": klassen_nieuw}
+
+    if schema < 2:
+        # v1 -> v2: instellingen toevoegen
+        if "instellingen" not in data:
+            data["instellingen"] = dict(STANDAARD_INSTELLINGEN)
+        # Zorg dat alle standaard-keys bestaan
+        for key, val in STANDAARD_INSTELLINGEN.items():
+            if key not in data["instellingen"]:
+                data["instellingen"][key] = val
+
+    # Zorg dat toplevel keys bestaan
+    data.setdefault("schooljaren", {})
+    data.setdefault("instellingen", dict(STANDAARD_INSTELLINGEN))
+    data["_schema"] = DATA_SCHEMA_VERSIE
+    return data
+
+
 def laad_data():
     pad = _data_pad()
     if os.path.exists(pad):
         try:
             with open(pad, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+            data = _migreer_data(data)
+            bewaar_data(data)  # Sla gemigreerde versie op
+            return data
         except Exception:
             pass
-    return {"schooljaren": {}, "instellingen": dict(STANDAARD_INSTELLINGEN)}
+    return _migreer_data({})
 
 
 def bewaar_data(data):
     pad = _data_pad()
+    data["_schema"] = DATA_SCHEMA_VERSIE
     with open(pad, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -470,15 +525,6 @@ class App:
         self.root.configure(bg=WIT)
 
         self.data = laad_data()
-        # Migreer oude data-structuur (zonder schooljaren)
-        if "klassen" in self.data and "schooljaren" not in self.data:
-            self.data = {"schooljaren": {}}
-            bewaar_data(self.data)
-
-        if "schooljaren" not in self.data:
-            self.data["schooljaren"] = {}
-        if "instellingen" not in self.data:
-            self.data["instellingen"] = dict(STANDAARD_INSTELLINGEN)
 
         self.inst = self.data["instellingen"]
 
@@ -527,10 +573,15 @@ class App:
         self.inhoud.pack(fill="both", expand=True, padx=20, pady=15)
 
         # Statusbalk
+        status_frame = tk.Frame(self.root, bg=LICHTGRIJS)
+        status_frame.pack(fill="x", side="bottom")
         self.status_var = tk.StringVar(value="")
-        tk.Label(self.root, textvariable=self.status_var,
+        tk.Label(status_frame, textvariable=self.status_var,
                  font=("Segoe UI", 9), bg=LICHTGRIJS, fg=DONKERGRIJS,
-                 anchor="w", padx=10).pack(fill="x", side="bottom")
+                 anchor="w", padx=10).pack(side="left")
+        tk.Label(status_frame, text=f"v{VERSIE}",
+                 font=("Segoe UI", 9), bg=LICHTGRIJS, fg="#bbb",
+                 anchor="e", padx=10).pack(side="right")
 
     def _wis_inhoud(self):
         for w in self.inhoud.winfo_children():
@@ -1232,6 +1283,46 @@ class App:
 
 
 # ============================================================
+# UPDATE CHECK
+# ============================================================
+def _check_update(callback):
+    """Check GitHub voor een nieuwere versie (draait in achtergrond-thread)."""
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        req = Request(url, headers={"Accept": "application/vnd.github.v3+json",
+                                     "User-Agent": "EvesZelfstandigWerk"})
+        with urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        laatste_tag = data.get("tag_name", "").lstrip("v")
+        if not laatste_tag:
+            return
+
+        # Vergelijk versies
+        def versie_tuple(v):
+            return tuple(int(x) for x in v.split(".") if x.isdigit())
+
+        if versie_tuple(laatste_tag) > versie_tuple(VERSIE):
+            # Zoek de juiste download URL voor dit platform
+            if sys.platform == "win32":
+                zoek = "Windows"
+            elif sys.platform == "darwin":
+                zoek = "macOS"
+            else:
+                zoek = "Linux"
+
+            download_url = data.get("html_url", "")
+            for asset in data.get("assets", []):
+                if zoek in asset.get("name", ""):
+                    download_url = asset["browser_download_url"]
+                    break
+
+            callback(laatste_tag, download_url)
+    except Exception:
+        pass  # Stil falen - geen internet is geen probleem
+
+
+# ============================================================
 # START
 # ============================================================
 def main():
@@ -1241,8 +1332,45 @@ def main():
             root.iconbitmap(default="")
     except Exception:
         pass
-    App(root)
+    app = App(root)
+
+    # Check voor updates in de achtergrond
+    def on_update(nieuwe_versie, download_url):
+        root.after(0, lambda: _toon_update(root, nieuwe_versie, download_url))
+
+    threading.Thread(target=_check_update, args=(on_update,), daemon=True).start()
+
     root.mainloop()
+
+
+def _toon_update(root, nieuwe_versie, download_url):
+    """Toon een update-melding bovenaan het venster."""
+    bar = tk.Frame(root, bg="#FFF3CD", height=40)
+    bar.pack(fill="x", side="top", before=root.winfo_children()[0])
+    bar.pack_propagate(False)
+
+    tk.Label(
+        bar, text=f"Nieuwe versie beschikbaar: v{nieuwe_versie}  (jij hebt v{VERSIE})",
+        font=("Segoe UI", 11), fg="#856404", bg="#FFF3CD",
+    ).pack(side="left", padx=15)
+
+    def download():
+        webbrowser.open(download_url)
+        bar.destroy()
+
+    tk.Button(
+        bar, text="Downloaden", command=download,
+        font=("Segoe UI", 10, "bold"), fg="#FFFFFF", bg="#27A9E1",
+        activebackground="#1E8CBF", relief="flat", cursor="hand2",
+        padx=12, pady=2,
+    ).pack(side="right", padx=(0, 10), pady=5)
+
+    tk.Button(
+        bar, text="\u2715", command=bar.destroy,
+        font=("Segoe UI", 10), fg="#856404", bg="#FFF3CD",
+        activebackground="#FFE69C", relief="flat", cursor="hand2",
+        bd=0,
+    ).pack(side="right", padx=(0, 5), pady=5)
 
 
 if __name__ == "__main__":
