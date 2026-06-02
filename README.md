@@ -34,9 +34,9 @@ Ga naar [Releases](../../releases) en download de versie voor jouw besturingssys
 
 | Platform | Bestand |
 |----------|---------|
-| Windows | `Eves.Zelfstandig.Werk.exe` |
-| macOS | `Eves.Zelfstandig.Werk.app.zip` |
-| Linux | `Eves.Zelfstandig.Werk.linux` |
+| 🪟 Windows | `Eves-Zelfstandig-Werk-Windows.exe` |
+| 🍎 macOS | `Eves-Zelfstandig-Werk-macOS.zip` |
+| 🐧 Linux | `Eves-Zelfstandig-Werk-Linux` |
 
 Dubbelklik om te openen. Geen installatie nodig.
 

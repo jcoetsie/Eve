@@ -15,22 +15,22 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: "Eves.Zelfstandig.Werk.exe"
+            artifact: windows
             build_cmd: pyinstaller --onefile --windowed --name "Eves Zelfstandig Werk" zelfstandig_werk_app.py
             asset_path: dist/Eves Zelfstandig Werk.exe
-            asset_name: Eves.Zelfstandig.Werk.exe
+            asset_name: Eves-Zelfstandig-Werk-Windows.exe
 
           - os: macos-latest
-            artifact: "Eves.Zelfstandig.Werk.app.zip"
+            artifact: macos
             build_cmd: pyinstaller --onefile --windowed --name "Eves Zelfstandig Werk" zelfstandig_werk_app.py
-            asset_path: Eves.Zelfstandig.Werk.app.zip
-            asset_name: Eves.Zelfstandig.Werk.app.zip
+            asset_path: Eves-Zelfstandig-Werk-macOS.zip
+            asset_name: Eves-Zelfstandig-Werk-macOS.zip
 
           - os: ubuntu-latest
-            artifact: "Eves.Zelfstandig.Werk.linux"
+            artifact: linux
             build_cmd: pyinstaller --onefile --name "Eves Zelfstandig Werk" zelfstandig_werk_app.py
             asset_path: dist/Eves Zelfstandig Werk
-            asset_name: Eves.Zelfstandig.Werk.linux
+            asset_name: Eves-Zelfstandig-Werk-Linux
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.os }})
@@ -54,7 +54,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           cd dist
-          zip -r "../Eves.Zelfstandig.Werk.app.zip" "Eves Zelfstandig Werk.app"
+          zip -r "../Eves-Zelfstandig-Werk-macOS.zip" "Eves Zelfstandig Werk.app"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -76,11 +76,26 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
+      - name: Rename artifacts
+        run: |
+          mv "artifacts/windows/Eves Zelfstandig Werk.exe" "artifacts/Eves-Zelfstandig-Werk-Windows.exe"
+          mv "artifacts/macos/Eves-Zelfstandig-Werk-macOS.zip" "artifacts/Eves-Zelfstandig-Werk-macOS.zip"
+          mv "artifacts/linux/Eves Zelfstandig Werk" "artifacts/Eves-Zelfstandig-Werk-Linux"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body: |
+            ## Downloads
+
+            | Platform | Download |
+            |----------|----------|
+            | 🪟 **Windows** | [Eves-Zelfstandig-Werk-Windows.exe](https://github.com/jcoetsie/Eve/releases/download/${{ github.ref_name }}/Eves-Zelfstandig-Werk-Windows.exe) |
+            | 🍎 **macOS** | [Eves-Zelfstandig-Werk-macOS.zip](https://github.com/jcoetsie/Eve/releases/download/${{ github.ref_name }}/Eves-Zelfstandig-Werk-macOS.zip) |
+            | 🐧 **Linux** | [Eves-Zelfstandig-Werk-Linux](https://github.com/jcoetsie/Eve/releases/download/${{ github.ref_name }}/Eves-Zelfstandig-Werk-Linux) |
+
+            Dubbelklik op het gedownloade bestand om de app te openen. Geen installatie nodig.
           files: |
-            artifacts/Eves.Zelfstandig.Werk.exe/Eves Zelfstandig Werk.exe
-            artifacts/Eves.Zelfstandig.Werk.app.zip/Eves.Zelfstandig.Werk.app.zip
-            artifacts/Eves.Zelfstandig.Werk.linux/Eves Zelfstandig Werk
+            artifacts/Eves-Zelfstandig-Werk-Windows.exe
+            artifacts/Eves-Zelfstandig-Werk-macOS.zip
+            artifacts/Eves-Zelfstandig-Werk-Linux
