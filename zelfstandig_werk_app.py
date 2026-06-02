@@ -16,6 +16,7 @@ import sys
 import threading
 import webbrowser
 from datetime import date
+import html as html_mod
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 
@@ -165,8 +166,6 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
     Touch op een vakje = vinkje aan/uit. Werkt in elke browser.
     layout: "bovenaan" = leerlingen als kolommen (standaard), "links" = leerlingen als rijen
     """
-    import html as html_mod
-
     n_taken = len(taken)
     n_ll = len(leerlingen)
     naam_esc = html_mod.escape(opdracht_naam)
