@@ -22,7 +22,7 @@ from urllib.error import URLError
 # ============================================================
 # VERSIE
 # ============================================================
-VERSIE = "1.2.0"
+VERSIE = "1.4.0"
 GITHUB_REPO = "jcoetsie/Eve"
 
 # ============================================================
@@ -1449,6 +1449,19 @@ def main():
         pass
     app = App(root)
 
+    # Check of dit de eerste keer is met deze versie → toon release notes
+    laatst_gezien = app.data.get("_laatst_geziene_versie", "")
+    if laatst_gezien != VERSIE and laatst_gezien != "":
+        # Nieuwe versie → haal release notes op en toon ze
+        def ophalen_notes():
+            _haal_release_notes(VERSIE, lambda notes: root.after(
+                0, lambda: _toon_release_notes(root, app, notes)))
+        threading.Thread(target=ophalen_notes, daemon=True).start()
+
+    # Markeer deze versie als gezien
+    app.data["_laatst_geziene_versie"] = VERSIE
+    bewaar_data(app.data)
+
     # Check voor updates in de achtergrond
     def on_update(nieuwe_versie, download_url):
         root.after(0, lambda: _toon_update(root, nieuwe_versie, download_url))
@@ -1486,6 +1499,72 @@ def _toon_update(root, nieuwe_versie, download_url):
         activebackground="#FFE69C", relief="flat", cursor="hand2",
         bd=0,
     ).pack(side="right", padx=(0, 5), pady=5)
+
+
+def _haal_release_notes(versie, callback):
+    """Haal release notes op van GitHub voor een specifieke versie."""
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/v{versie}"
+        req = Request(url, headers={"Accept": "application/vnd.github.v3+json",
+                                     "User-Agent": "EvesZelfstandigWerk"})
+        with urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        body = data.get("body", "")
+        if body:
+            callback(body)
+    except Exception:
+        pass
+
+
+def _toon_release_notes(root, app, notes):
+    """Toon een 'Wat is er nieuw?' dialoog."""
+    dialoog = tk.Toplevel(root)
+    dialoog.title(f"Wat is er nieuw in v{VERSIE}?")
+    dialoog.geometry("500x400")
+    dialoog.resizable(True, True)
+    dialoog.configure(bg=WIT)
+
+    # Maak modaal
+    dialoog.transient(root)
+    dialoog.grab_set()
+
+    # Header
+    hdr = tk.Frame(dialoog, bg="#27A9E1", height=50)
+    hdr.pack(fill="x")
+    hdr.pack_propagate(False)
+    tk.Label(hdr, text=f"Wat is er nieuw in v{VERSIE}?",
+             font=("Segoe UI", 16, "bold"), fg=WIT, bg="#27A9E1").pack(expand=True)
+
+    # Simpele markdown → tekst conversie
+    schone_tekst = notes
+    # Verwijder markdown links: [tekst](url) → tekst
+    import re
+    schone_tekst = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', schone_tekst)
+    # Verwijder HTML tags
+    schone_tekst = re.sub(r'<[^>]+>', '', schone_tekst)
+    # Verwijder markdown bold/italic
+    schone_tekst = schone_tekst.replace('**', '').replace('__', '')
+    # Verwijder ## headers prefix maar behoud tekst
+    schone_tekst = re.sub(r'^#+\s*', '', schone_tekst, flags=re.MULTILINE)
+
+    # Tekstveld
+    txt = scrolledtext.ScrolledText(
+        dialoog, font=("Segoe UI", 12), wrap="word",
+        relief="flat", bd=0, padx=15, pady=15, bg=WIT,
+    )
+    txt.pack(fill="both", expand=True)
+    txt.insert("1.0", schone_tekst.strip())
+    txt.config(state="disabled")
+
+    # Sluitknop
+    btn_frame = tk.Frame(dialoog, bg=WIT, pady=10)
+    btn_frame.pack(fill="x")
+    tk.Button(
+        btn_frame, text="Begrepen!", command=dialoog.destroy,
+        font=("Segoe UI", 12, "bold"), fg=WIT, bg="#AACD55",
+        activebackground="#8AB535", relief="flat", cursor="hand2",
+        padx=30, pady=8,
+    ).pack()
 
 
 if __name__ == "__main__":
