@@ -45,6 +45,7 @@ STANDAARD_INSTELLINGEN = {
     "schoolnaam": "VBS Aaigem",
     "hoofdkleur": "#AACD55",      # Groen - headers, knoppen
     "accentkleur": "#27A9E1",     # Blauw - titelbalk, namen, score
+    "layout": "bovenaan",         # "bovenaan" = leerlingen als kolommen, "links" = als rijen
 }
 
 def _donkerder(hex_kleur, factor=0.8):
@@ -145,15 +146,16 @@ def bewaar_data(data):
 # ============================================================
 def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
                          hoofdkleur="#AACD55", accentkleur="#27A9E1",
-                         schoolnaam="VBS Aaigem"):
+                         schoolnaam="VBS Aaigem", layout="bovenaan"):
     """Genereer een HTML-bestand voor het smartboard.
 
     Touch op een vakje = vinkje aan/uit. Werkt in elke browser.
-    Geen installatie, geen macro's, gewoon dubbelklikken om te openen.
+    layout: "bovenaan" = leerlingen als kolommen (standaard), "links" = leerlingen als rijen
     """
     import html as html_mod
 
     n_taken = len(taken)
+    n_ll = len(leerlingen)
     naam_esc = html_mod.escape(opdracht_naam)
     school_esc = html_mod.escape(schoolnaam)
 
@@ -168,24 +170,55 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
     hoofd_done = _lichter(hoofdkleur, 0.45)
     hoofd_done2 = _lichter(hoofdkleur, 0.50)
 
-    # Bouw tabel-rijen
-    rijen_html = ""
-    for i, naam in enumerate(leerlingen):
-        naam_esc_ll = html_mod.escape(naam)
-        even = "even" if i % 2 == 0 else "odd"
-        cellen = ""
-        for j in range(n_taken):
-            cellen += f'      <td class="cel {even}" onclick="toggle(this)" id="c{i}_{j}"></td>\n'
-        rijen_html += f"""    <tr class="{even}">
-      <td class="naam">{naam_esc_ll}</td>
+    # Bouw tabel HTML afhankelijk van layout
+    if layout == "bovenaan":
+        # Leerlingen als KOLOMMEN (bovenaan), taken als RIJEN (links)
+        header_html = "      <th>Taak</th>\n"
+        for i, naam in enumerate(leerlingen):
+            even = "even" if i % 2 == 0 else "odd"
+            header_html += f'      <th class="naam-kol {even}">{html_mod.escape(naam)}</th>\n'
+        header_html += "      <th>Klaar</th>\n"
+
+        rijen_html = ""
+        for j, taak in enumerate(taken):
+            cellen = ""
+            for i in range(n_ll):
+                even = "even" if i % 2 == 0 else "odd"
+                cellen += f'      <td class="cel {even}" onclick="toggle(this)" id="c{i}_{j}"></td>\n'
+            # "Klaar" kolom: hoeveel leerlingen hebben deze taak af
+            rijen_html += f"""    <tr>
+      <td class="taak-naam">{html_mod.escape(taak)}</td>
+{cellen}      <td class="klaar" id="klaar{j}">0/{n_ll}</td>
+    </tr>
+"""
+        # Score-rij onderaan: per leerling
+        score_cellen = ""
+        for i in range(n_ll):
+            even = "even" if i % 2 == 0 else "odd"
+            score_cellen += f'      <td class="score {even}" id="score{i}">0/{n_taken}</td>\n'
+        rijen_html += f"""    <tr class="score-rij">
+      <td class="score-label">Score</td>
+{score_cellen}      <td></td>
+    </tr>
+"""
+    else:
+        # Leerlingen als RIJEN (links), taken als KOLOMMEN (bovenaan)
+        header_html = "      <th>Leerling</th>\n"
+        for taak in taken:
+            header_html += f"      <th>{html_mod.escape(taak)}</th>\n"
+        header_html += "      <th>Score</th>\n"
+
+        rijen_html = ""
+        for i, naam in enumerate(leerlingen):
+            even = "even" if i % 2 == 0 else "odd"
+            cellen = ""
+            for j in range(n_taken):
+                cellen += f'      <td class="cel {even}" onclick="toggle(this)" id="c{i}_{j}"></td>\n'
+            rijen_html += f"""    <tr class="{even}">
+      <td class="naam">{html_mod.escape(naam)}</td>
 {cellen}      <td class="score" id="score{i}">0/{n_taken}</td>
     </tr>
 """
-
-    # Bouw taak-headers
-    taak_headers = ""
-    for taak in taken:
-        taak_headers += f"      <th>{html_mod.escape(taak)}</th>\n"
 
     pagina = f"""<!DOCTYPE html>
 <html lang="nl">
@@ -300,13 +333,54 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
     background: {hoofd_done2} !important;
   }}
 
-  td.score {{
+  td.score, td.klaar {{
     font-weight: bold;
     font-size: 15px;
     padding: 0 8px;
     background: {accent_licht};
     color: {accentkleur};
     white-space: nowrap;
+  }}
+
+  /* Layout: leerlingen bovenaan */
+  th.naam-kol {{
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    padding: 12px 6px;
+    font-size: 14px;
+    color: {accentkleur};
+    background: {hoofd_licht};
+    min-width: 50px;
+    height: 120px;
+    vertical-align: bottom;
+  }}
+  th.naam-kol.odd {{ background: {hoofd_licht2}; }}
+
+  td.taak-naam {{
+    font-weight: bold;
+    font-size: 14px;
+    color: {accentkleur};
+    text-align: left;
+    padding: 8px 12px;
+    background: {hoofd_licht};
+    white-space: nowrap;
+  }}
+
+  .score-rij td {{
+    background: {accent_licht};
+    font-weight: bold;
+    font-size: 14px;
+    color: {accentkleur};
+    padding: 8px;
+  }}
+  td.score-label {{
+    font-weight: bold;
+    font-size: 14px;
+    color: {accentkleur};
+    text-align: left;
+    padding: 8px 12px;
+    background: {accent_licht};
   }}
 
   .reset-container {{
@@ -383,9 +457,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
 <table>
   <thead>
     <tr>
-      <th>Leerling</th>
-{taak_headers}      <th>Score</th>
-    </tr>
+{header_html}    </tr>
   </thead>
   <tbody>
 {rijen_html}  </tbody>
@@ -408,20 +480,35 @@ function toggle(cel) {{
 }}
 
 function updateScores() {{
+  // Score per leerling
   for (let i = 0; i < N_LL; i++) {{
     let done = 0;
     for (let j = 0; j < N_TAKEN; j++) {{
       if (document.getElementById('c' + i + '_' + j).classList.contains('done')) done++;
     }}
     const el = document.getElementById('score' + i);
-    el.textContent = done + '/' + N_TAKEN;
-    el.style.color = done === N_TAKEN ? '#4CAF50' : '{accentkleur}';
-    el.style.fontWeight = done === N_TAKEN ? '900' : 'bold';
-    if (done === N_TAKEN && !el.dataset.gevierd) {{
-      el.dataset.gevierd = '1';
+    if (el) {{
+      el.textContent = done + '/' + N_TAKEN;
+      el.style.color = done === N_TAKEN ? '#4CAF50' : '{accentkleur}';
+      el.style.fontWeight = done === N_TAKEN ? '900' : 'bold';
+    }}
+    if (done === N_TAKEN && !((el||{{}}).dataset||{{}}).gevierd) {{
+      if (el) el.dataset.gevierd = '1';
       viering(i);
     }}
-    if (done < N_TAKEN) {{ el.dataset.gevierd = ''; }}
+    if (done < N_TAKEN && el) {{ el.dataset.gevierd = ''; }}
+  }}
+  // Klaar per taak (alleen bij layout "bovenaan")
+  for (let j = 0; j < N_TAKEN; j++) {{
+    let klaar = 0;
+    for (let i = 0; i < N_LL; i++) {{
+      if (document.getElementById('c' + i + '_' + j).classList.contains('done')) klaar++;
+    }}
+    const el = document.getElementById('klaar' + j);
+    if (el) {{
+      el.textContent = klaar + '/' + N_LL;
+      el.style.color = klaar === N_LL ? '#4CAF50' : '{accentkleur}';
+    }}
   }}
 }}
 
@@ -429,8 +516,11 @@ function viering(leerlingIdx) {{
   // Overlay
   const ov = document.createElement('div');
   ov.className = 'viering-overlay';
-  const naamEl = document.querySelector('tr:nth-child(' + (leerlingIdx + 1) + ') td.naam');
-  const naam = naamEl ? naamEl.textContent : '';
+  let naam = '';
+  const naamTd = document.querySelector('tr:nth-child(' + (leerlingIdx + 1) + ') td.naam');
+  const naamTh = document.querySelector('th.naam-kol:nth-of-type(' + (leerlingIdx + 2) + ')');
+  if (naamTd) naam = naamTd.textContent;
+  else if (naamTh) naam = naamTh.textContent;
   ov.innerHTML = '<div class="viering-box">'
     + '<div class="viering-ster">\\u2B50</div>'
     + '<div class="viering-tekst">Goed gedaan' + (naam ? ', ' + naam : '') + '!</div>'
@@ -1056,7 +1146,8 @@ class App:
             html_pad = genereer_smartboard(leerlingen, naam, taken, pad,
                                           hoofdkleur=self.inst.get("hoofdkleur", "#AACD55"),
                                           accentkleur=self.inst.get("accentkleur", "#27A9E1"),
-                                          schoolnaam=self.inst.get("schoolnaam", ""))
+                                          schoolnaam=self.inst.get("schoolnaam", ""),
+                                          layout=self.inst.get("layout", "bovenaan"))
             self._toon_klaar(html_pad, naam, len(leerlingen), len(taken))
         except Exception as e:
             messagebox.showerror("Er ging iets mis", str(e))
@@ -1116,7 +1207,8 @@ class App:
             html_pad = genereer_smartboard(leerlingen, naam, taken, pad,
                                           hoofdkleur=self.inst.get("hoofdkleur", "#AACD55"),
                                           accentkleur=self.inst.get("accentkleur", "#27A9E1"),
-                                          schoolnaam=self.inst.get("schoolnaam", ""))
+                                          schoolnaam=self.inst.get("schoolnaam", ""),
+                                          layout=self.inst.get("layout", "bovenaan"))
             self._toon_klaar(html_pad, naam, len(leerlingen), len(taken))
         except Exception as e:
             messagebox.showerror("Er ging iets mis", str(e))
@@ -1236,7 +1328,29 @@ class App:
 
         # Tip
         tk.Label(self.inhoud, text="Klik op een kleurvak om een andere kleur te kiezen.",
-                 font=("Segoe UI", 10, "italic"), fg="#aaa", bg=WIT).pack(anchor="w", pady=(5, 0))
+                 font=("Segoe UI", 10, "italic"), fg="#aaa", bg=WIT).pack(anchor="w", pady=(5, 15))
+
+        # Layout keuze
+        tk.Label(self.inhoud, text="Layout op het smartboard:",
+                 font=("Segoe UI", 12), fg=ZWART, bg=WIT).pack(anchor="w", pady=(5, 5))
+
+        layout_frame = tk.Frame(self.inhoud, bg=WIT)
+        layout_frame.pack(fill="x", pady=(0, 5))
+
+        self.layout_var = tk.StringVar(value=self.inst.get("layout", "bovenaan"))
+
+        tk.Radiobutton(
+            layout_frame, text="Leerlingen bovenaan (standaard)",
+            variable=self.layout_var, value="bovenaan",
+            font=("Segoe UI", 11), fg=ZWART, bg=WIT, activebackground=WIT,
+            selectcolor=WIT,
+        ).pack(anchor="w")
+        tk.Radiobutton(
+            layout_frame, text="Leerlingen links",
+            variable=self.layout_var, value="links",
+            font=("Segoe UI", 11), fg=ZWART, bg=WIT, activebackground=WIT,
+            selectcolor=WIT,
+        ).pack(anchor="w")
 
         # Spacer
         tk.Frame(self.inhoud, bg=WIT).pack(fill="both", expand=True)
@@ -1263,6 +1377,7 @@ class App:
 
     def _instellingen_opslaan(self):
         self.inst["schoolnaam"] = self.entry_schoolnaam.get().strip() or "Mijn School"
+        self.inst["layout"] = self.layout_var.get()
         self.data["instellingen"] = self.inst
         bewaar_data(self.data)
 
