@@ -142,6 +142,19 @@ def bewaar_data(data):
 
 
 # ============================================================
+# Taak-opmaak: **vet** en __onderlijnd__
+# ============================================================
+import re as _re
+
+def _taak_opmaak(tekst):
+    """Converteer **vet** en __onderlijnd__ naar HTML, rest wordt ge-escaped."""
+    veilig = html_mod.escape(tekst)
+    veilig = _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', veilig)
+    veilig = _re.sub(r'__(.+?)__', r'<u>\1</u>', veilig)
+    return veilig
+
+
+# ============================================================
 # HTML GENERATOR - Smartboard Touch (geen macro's nodig!)
 # ============================================================
 def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
@@ -187,7 +200,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
                 cellen += f'      <td class="cel {even}" onclick="toggle(this)" id="c{i}_{j}"></td>\n'
             # "Klaar" kolom: hoeveel leerlingen hebben deze taak af
             rijen_html += f"""    <tr>
-      <td class="taak-naam">{html_mod.escape(taak)}</td>
+      <td class="taak-naam">{_taak_opmaak(taak)}</td>
 {cellen}      <td class="klaar" id="klaar{j}">0/{n_ll}</td>
     </tr>
 """
@@ -205,7 +218,7 @@ def genereer_smartboard(leerlingen, opdracht_naam, taken, bestandspad,
         # Leerlingen als RIJEN (links), taken als KOLOMMEN (bovenaan)
         header_html = "      <th>Leerling</th>\n"
         for taak in taken:
-            header_html += f"      <th>{html_mod.escape(taak)}</th>\n"
+            header_html += f"      <th>{_taak_opmaak(taak)}</th>\n"
         header_html += "      <th>Score</th>\n"
 
         rijen_html = ""
@@ -1167,7 +1180,7 @@ class App:
         self.entry_opdracht.focus_set()
         self.entry_opdracht.icursor(len("Zelfstandig werk - "))
 
-        tk.Label(self.inhoud, text="Taken (één per regel):",
+        tk.Label(self.inhoud, text="Taken (één per regel)  —  **vet**  __onderlijnd__",
                  font=("Segoe UI", 12), fg=ZWART, bg=WIT).pack(anchor="w", pady=(5, 3))
         self.txt_taken = scrolledtext.ScrolledText(self.inhoud, font=("Segoe UI", 13),
                                                     height=8, relief="solid", bd=1)
