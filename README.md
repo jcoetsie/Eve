@@ -40,6 +40,26 @@ Ga naar [Releases](../../releases) en download de versie voor jouw besturingssys
 
 Dubbelklik om te openen. Geen installatie nodig.
 
+> **Beveiligingsmelding bij eerste keer openen?** Dat is normaal voor gratis open source software. Zie hieronder hoe je dit oplost.
+
+#### Windows: "Windows heeft uw pc beschermd"
+
+1. Klik op **"Meer info"**
+2. Klik op **"Toch uitvoeren"**
+
+Dit verschijnt omdat de app niet door Microsoft is gecertificeerd (dat kost geld). De broncode is volledig open en controleerbaar.
+
+#### macOS: "kan niet worden geopend"
+
+1. Klik met de **rechtermuisknop** (of Ctrl+klik) op de app
+2. Kies **"Open"**
+3. Klik op **"Open"** in het dialoogvenster
+
+Of via Terminal:
+```bash
+xattr -cr "/pad/naar/Eves Zelfstandig Werk.app"
+```
+
 ### Zelf draaien vanuit broncode
 
 ```bash

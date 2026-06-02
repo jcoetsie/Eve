@@ -54,6 +54,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           cd dist
+          xattr -cr "Eves Zelfstandig Werk.app"
           zip -r "../Eves-Zelfstandig-Werk-macOS.zip" "Eves Zelfstandig Werk.app"
 
       - name: Upload artifact
@@ -95,6 +96,21 @@ jobs:
             | 🐧 **Linux** | [Eves-Zelfstandig-Werk-Linux](https://github.com/jcoetsie/Eve/releases/download/${{ github.ref_name }}/Eves-Zelfstandig-Werk-Linux) |
 
             Dubbelklik op het gedownloade bestand om de app te openen. Geen installatie nodig.
+
+            ---
+
+            <details><summary>⚠️ <b>Beveiligingsmelding bij eerste keer openen?</b></summary>
+
+            #### Windows: "Windows heeft uw pc beschermd"
+            1. Klik op **"Meer info"**
+            2. Klik op **"Toch uitvoeren"**
+
+            #### macOS: "kan niet worden geopend"
+            1. **Rechtermuisknop** (of Ctrl+klik) op de app
+            2. Kies **"Open"** → klik nogmaals **"Open"**
+
+            Dit is normaal voor gratis open source software. De broncode is volledig open en controleerbaar.
+            </details>
           files: |
             artifacts/Eves-Zelfstandig-Werk-Windows.exe
             artifacts/Eves-Zelfstandig-Werk-macOS.zip
