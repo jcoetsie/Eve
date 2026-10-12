@@ -750,6 +750,19 @@ class App:
         balk = tk.Frame(kaart, bg=kleur, width=8)
         balk.pack(side="left", fill="y")
 
+        # Knoppen eerst rechts pakken zodat ze ruimte reserveren vóór inhoud uitbreidt
+        if on_delete:
+            tk.Button(kaart, text=" \u2715 ", command=on_delete,
+                      font=("Segoe UI", 12), fg="#cc0000", bg=WIT,
+                      activebackground="#ffcccc", relief="flat", cursor="hand2", bd=0,
+                      ).pack(side="right", padx=(0, 8), pady=8)
+
+        if on_edit:
+            tk.Button(kaart, text=" \u270E ", command=on_edit,
+                      font=("Segoe UI", 12), fg=BLAUW, bg=WIT,
+                      activebackground="#cce5ff", relief="flat", cursor="hand2", bd=0,
+                      ).pack(side="right", padx=(0, 4), pady=8)
+
         inhoud = tk.Frame(kaart, bg=WIT, padx=15, pady=12)
         inhoud.pack(side="left", fill="both", expand=True)
 
@@ -764,18 +777,6 @@ class App:
         for w in [kaart, balk, inhoud, lbl_t, lbl_s]:
             w.bind("<Button-1>", lambda e: on_click())
             w.configure(cursor="hand2")
-
-        if on_delete:
-            tk.Button(kaart, text=" \u2715 ", command=on_delete,
-                      font=("Segoe UI", 12), fg="#cc0000", bg=WIT,
-                      activebackground="#ffcccc", relief="flat", cursor="hand2", bd=0,
-                      ).pack(side="right", padx=(0, 8), pady=8)
-
-        if on_edit:
-            tk.Button(kaart, text=" \u270E ", command=on_edit,
-                      font=("Segoe UI", 12), fg=BLAUW, bg=WIT,
-                      activebackground="#cce5ff", relief="flat", cursor="hand2", bd=0,
-                      ).pack(side="right", padx=(0, 4), pady=8)
 
         return kaart
 
